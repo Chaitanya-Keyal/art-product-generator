@@ -1,0 +1,22 @@
+{
+    "name": "art-product-generator",
+    "version": "1.0.0",
+    "private": true,
+    "description": "AI Art Product Generator - Monorepo",
+    "scripts": {
+        "lint": "pnpm -r lint",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "prepare": "husky"
+    },
+    "devDependencies": {
+        "husky": "^9.1.7",
+        "lint-staged": "^16.2.7",
+        "prettier": "^3.8.1"
+    },
+    "lint-staged": {
+        "*.{js,jsx,json,css,html}": "prettier --write",
+        "client/src/**/*.{js,jsx}": "pnpm --filter art-product-generator-client eslint --fix",
+        "server/src/**/*.js": "pnpm --filter art-product-generator-server eslint --fix"
+    }
+}

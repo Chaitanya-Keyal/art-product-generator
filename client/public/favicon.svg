@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#6366f1" />
+            <stop offset="100%" style="stop-color:#8b5cf6" />
+        </linearGradient>
+    </defs>
+    <!-- Background circle -->
+    <circle cx="50" cy="50" r="48" fill="url(#bg)" />
+    <!-- Artist palette shape -->
+    <ellipse cx="50" cy="52" rx="32" ry="26" fill="#fef3c7" />
+    <!-- Thumb hole -->
+    <ellipse cx="30" cy="58" rx="8" ry="7" fill="url(#bg)" />
+    <!-- Paint dots representing Indian art colors -->
+    <circle cx="45" cy="40" r="6" fill="#dc2626" /> <!-- Red - Warli -->
+    <circle cx="60" cy="38" r="5" fill="#2563eb" /> <!-- Blue - Blue Pottery -->
+    <circle cx="72" cy="46" r="5" fill="#16a34a" /> <!-- Green - Gond -->
+    <circle cx="70" cy="60" r="5" fill="#eab308" /> <!-- Yellow - Pattachitra -->
+    <circle cx="55" cy="65" r="4" fill="#9333ea" /> <!-- Purple -->
+</svg>

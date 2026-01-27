@@ -1,0 +1,40 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+
+jobs:
+    lint-and-format:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 24
+                  cache: 'pnpm'
+                  cache-dependency-path: |
+                      pnpm-lock.yaml
+                      client/pnpm-lock.yaml
+                      server/pnpm-lock.yaml
+
+            - name: Install dependencies
+              run: |
+                  pnpm install --ignore-scripts
+                  pnpm install --ignore-scripts -C client
+                  pnpm install --ignore-scripts -C server
+
+            - name: Check formatting
+              run: pnpm format:check
+
+            - name: Lint
+              run: pnpm lint
