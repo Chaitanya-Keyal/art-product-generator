@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import generationRoutes from './routes/generation.js';
 import artFormRoutes from './routes/artForms.js';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 if (!process.env.GEMINI_API_KEY) {
     console.error('Missing required environment variable: GEMINI_API_KEY');
@@ -34,6 +34,13 @@ app.use('/api/art-forms', artFormRoutes);
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.use((err, req, res, _next) => {
+    console.error('Unhandled error:', err);
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal server error',
+    });
 });
 
 mongoose
