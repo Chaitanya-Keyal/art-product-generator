@@ -8,19 +8,13 @@ import {
     MIME_TYPES,
     GEMINI_CONFIG,
     IMAGE_GENERATION,
-    GEMINI_MODELS,
-    DEFAULT_MODEL,
+    GEMINI_MODEL_ID,
 } from '../config/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-function getModelId(modelKey) {
-    const model = GEMINI_MODELS[modelKey] || GEMINI_MODELS[DEFAULT_MODEL];
-    return model.id;
-}
 
 function buildGeminiConfig() {
     return {
@@ -194,7 +188,6 @@ export async function generateProductImages({
     referenceImagePath,
     additionalInstructions,
     numberOfImages = 1,
-    model = DEFAULT_MODEL,
 }) {
     const { messageParts, historyParts } = buildRequestParts(
         artForm,
@@ -207,7 +200,7 @@ export async function generateProductImages({
     let response;
     try {
         response = await ai.models.generateContent({
-            model: getModelId(model),
+            model: GEMINI_MODEL_ID,
             config: buildGeminiConfig(),
             contents: [{ role: 'user', parts: messageParts }],
         });
@@ -286,16 +279,11 @@ function rehydrateHistory(history, selectedImageIds = []) {
 }
 
 // Chat SDK handles thought signatures automatically
-export async function modifyImages(
-    history,
-    modificationPrompt,
-    selectedImageIds = [],
-    model = DEFAULT_MODEL
-) {
+export async function modifyImages(history, modificationPrompt, selectedImageIds = []) {
     const rehydratedHistory = rehydrateHistory(history, selectedImageIds);
 
     const chat = ai.chats.create({
-        model: getModelId(model),
+        model: GEMINI_MODEL_ID,
         config: buildGeminiConfig(),
         history: rehydratedHistory,
     });

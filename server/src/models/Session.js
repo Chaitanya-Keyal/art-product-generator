@@ -40,10 +40,6 @@ const sessionSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    model: {
-        type: String,
-        default: 'gemini-3-pro',
-    },
     history: [messageSchema],
     generatedImages: [
         {

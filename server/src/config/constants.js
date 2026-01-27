@@ -14,20 +14,7 @@ export const MIME_TYPES = {
     '.gif': 'image/gif',
 };
 
-export const GEMINI_MODELS = {
-    'gemini-3-pro': {
-        id: 'gemini-3-pro-image-preview',
-        name: 'Nano Banana Pro',
-        description: 'Best quality, slower generation',
-    },
-    'gemini-2.5-flash': {
-        id: 'gemini-2.5-flash-image',
-        name: 'Nano Banana',
-        description: 'Faster generation, good quality',
-    },
-};
-
-export const DEFAULT_MODEL = 'gemini-3-pro';
+export const GEMINI_MODEL_ID = 'gemini-3-pro-image-preview';
 
 export const GEMINI_CONFIG = {
     RESPONSE_MODALITIES: ['TEXT', 'IMAGE'],

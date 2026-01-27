@@ -8,13 +8,7 @@ function GenerationForm({ artForms, onGenerate, generating }) {
     const [referenceImage, setReferenceImage] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [validationError, setValidationError] = useState('');
-    const [model, setModel] = useState('gemini-3-pro');
     const [numberOfImages, setNumberOfImages] = useState(1);
-
-    const modelOptions = [
-        { key: 'gemini-3-pro', name: 'Nano Banana Pro', description: 'Best quality, slower' },
-        { key: 'gemini-2.5-flash', name: 'Nano Banana', description: 'Faster generation' },
-    ];
 
     const fileInputRef = useRef(null);
     const dropdownRef = useRef(null);
@@ -81,7 +75,6 @@ function GenerationForm({ artForms, onGenerate, generating }) {
             productType: productType.trim(),
             additionalInstructions: additionalInstructions.trim(),
             referenceImage,
-            model,
             numberOfImages,
         });
     };
@@ -337,53 +330,6 @@ function GenerationForm({ artForms, onGenerate, generating }) {
                         The AI may sometimes return fewer images than requested
                     </p>
                 )}
-            </div>
-
-            <div className="form-group">
-                <label className="form-label">AI Model</label>
-                <span className="form-sublabel">Choose the generation model</span>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {modelOptions.map((opt) => (
-                        <label
-                            key={opt.key}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.75rem 1rem',
-                                border:
-                                    model === opt.key
-                                        ? '2px solid var(--primary)'
-                                        : '1px solid var(--border)',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                background:
-                                    model === opt.key
-                                        ? 'rgba(139, 92, 246, 0.1)'
-                                        : 'var(--surface)',
-                                flex: '1',
-                                minWidth: '180px',
-                            }}
-                        >
-                            <input
-                                type="radio"
-                                name="model"
-                                value={opt.key}
-                                checked={model === opt.key}
-                                onChange={(e) => setModel(e.target.value)}
-                                style={{ accentColor: 'var(--primary)' }}
-                            />
-                            <div>
-                                <div style={{ fontWeight: '500' }}>{opt.name}</div>
-                                <div
-                                    style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}
-                                >
-                                    {opt.description}
-                                </div>
-                            </div>
-                        </label>
-                    ))}
-                </div>
             </div>
 
             <button

@@ -15,17 +15,12 @@ export async function generateImages({
     productType,
     referenceImage,
     additionalInstructions,
-    model,
     numberOfImages,
 }) {
     return apiCall(async () => {
         const formData = new FormData();
         formData.append('artFormKey', artFormKey);
         formData.append('productType', productType);
-
-        if (model) {
-            formData.append('model', model);
-        }
 
         if (numberOfImages && numberOfImages > 1) {
             formData.append('numberOfImages', numberOfImages);

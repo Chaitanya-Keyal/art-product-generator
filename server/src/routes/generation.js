@@ -10,23 +10,17 @@ import {
     formatImageUrls,
 } from '../utils/response-formatter.js';
 import { validateRequired, validateEnum } from '../utils/validation.js';
-import {
-    SESSION_LIMITS,
-    GEMINI_MODELS,
-    DEFAULT_MODEL,
-    IMAGE_GENERATION,
-} from '../config/constants.js';
+import { SESSION_LIMITS, IMAGE_GENERATION } from '../config/constants.js';
 
 const router = express.Router();
 
 router.post('/', upload.single('referenceImage'), async (req, res) => {
     try {
-        const { artFormKey, productType, additionalInstructions, model, numberOfImages } = req.body;
+        const { artFormKey, productType, additionalInstructions, numberOfImages } = req.body;
 
         validateEnum(artFormKey, artForms, 'art form');
         validateRequired(productType, 'Product type');
 
-        const selectedModel = GEMINI_MODELS[model] ? model : DEFAULT_MODEL;
         const imageCount = Math.min(
             Math.max(parseInt(numberOfImages) || IMAGE_GENERATION.DEFAULT_COUNT, 1),
             IMAGE_GENERATION.MAX_COUNT
@@ -40,7 +34,6 @@ router.post('/', upload.single('referenceImage'), async (req, res) => {
             referenceImagePath,
             additionalInstructions: additionalInstructions?.trim(),
             numberOfImages: imageCount,
-            model: selectedModel,
         });
 
         const sessionId = uuidv4();
@@ -48,7 +41,6 @@ router.post('/', upload.single('referenceImage'), async (req, res) => {
             sessionId,
             artForm: artFormKey,
             productType,
-            model: selectedModel,
             history: [
                 { role: 'user', parts: result.requestParts },
                 { role: 'model', parts: result.responseParts },
@@ -83,8 +75,7 @@ router.post('/modify/:sessionId', async (req, res) => {
         const result = await modifyImages(
             session.history,
             modificationPrompt.trim(),
-            selectedImageIds || [],
-            session.model
+            selectedImageIds || []
         );
 
         session.history.push({
