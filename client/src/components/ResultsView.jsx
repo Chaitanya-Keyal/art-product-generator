@@ -54,7 +54,11 @@ function ResultsView({
         const imageId = getImageId(imageUrl);
         setSelectedIds((prev) => {
             const next = new Set(prev);
-            next.has(imageId) ? next.delete(imageId) : next.add(imageId);
+            if (next.has(imageId)) {
+                next.delete(imageId);
+            } else if (next.size < 4) {
+                next.add(imageId);
+            }
             return next;
         });
     };
@@ -110,6 +114,42 @@ function ResultsView({
                         </p>
                     </div>
                 )}
+
+                {latestResponse?.errors && latestResponse.errors.length > 0 && (
+                    <div
+                        style={{
+                            marginTop: '1.5rem',
+                            padding: '1rem',
+                            background: 'rgba(239, 68, 68, 0.05)',
+                            borderRadius: '8px',
+                            borderLeft: '3px solid #ef4444',
+                        }}
+                    >
+                        <p
+                            style={{
+                                fontSize: '0.875rem',
+                                color: '#ef4444',
+                                marginBottom: '0.5rem',
+                                fontWeight: '600',
+                            }}
+                        >
+                            Generation Errors:
+                        </p>
+                        <ul
+                            style={{
+                                margin: 0,
+                                paddingLeft: '1.5rem',
+                                color: 'var(--text-primary)',
+                            }}
+                        >
+                            {latestResponse.errors.map((err, idx) => (
+                                <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                    Request {err.index}: {err.message}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
 
             {generating && (
@@ -157,7 +197,7 @@ function ResultsView({
                             marginBottom: '1rem',
                         }}
                     >
-                        Click images to select for modification
+                        Click images to select for modification (max 4)
                     </p>
                     <ImageGrid
                         images={latestResponse.images}

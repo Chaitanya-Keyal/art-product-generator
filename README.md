@@ -5,9 +5,9 @@ An AI-powered web app that generates product visualizations in traditional India
 ## Features
 
 - **12 Indian Art Forms**: Blue Pottery, Cheriyal, Gond, Hand Sculpting, Kalamkari, Kavad, Madurkathi, Miniature, Nirmal, Pattachitra, Tholu Bommalata, Warli
-- **AI Image Generation**: Creates up to 4 product visualizations per request
+- **AI Image Generation**: Generates up to 4 product visualizations per request (one image per API call, all run in parallel)
 - **Reference Image Support**: Upload product reference for better results
-- **Iterative Refinement**: Modify generated images with text prompts
+- **Iterative Refinement**: Modify generated images with text prompts (one image per selected image, each handled independently)
 - **Fully Dockerized**: Single command deployment
 
 ## Quick Start
@@ -63,10 +63,13 @@ An AI-powered web app that generates product visualizations in traditional India
     - `productType` (required): Product name
     - `additionalInstructions` (optional): Extra AI instructions
     - `referenceImage` (optional): Product reference image file
+    - `numberOfImages` (optional): Number of images to generate (max 4, each is a separate API call)
 
 - `POST /api/generate/modify/:sessionId` - Modify existing images
   - Body (JSON):
     - `modificationPrompt`: Description of changes
+    - `selectedImageIds` (optional): Array of image IDs to modify (if omitted, all images from the latest generation are modified)
+  - Note: Each selected image is modified in a separate API call (parallelized). You will always get one modified image per selected image.
 
 - `GET /api/generate/session/:sessionId` - Get session details
 

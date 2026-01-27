@@ -16,10 +16,6 @@ export const MIME_TYPES = {
 
 export const GEMINI_MODEL_ID = 'gemini-3-pro-image-preview';
 
-export const GEMINI_CONFIG = {
-    RESPONSE_MODALITIES: ['TEXT', 'IMAGE'],
-};
-
 export const SESSION_LIMITS = {
     DEFAULT_LIMIT: 50,
     MAX_LIMIT: 100,

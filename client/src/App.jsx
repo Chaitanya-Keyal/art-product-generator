@@ -3,7 +3,7 @@ import GenerationForm from './components/GenerationForm';
 import ResultsView from './components/ResultsView';
 import Gallery from './components/Gallery';
 import Toast from './components/Toast';
-import { fetchArtForms, generateImages, modifyImages } from './api';
+import { fetchArtForms, generateImages, modifyImages, getSession } from './api';
 import {
     buildUserHistoryEntry,
     buildAssistantHistoryEntry,
@@ -65,10 +65,16 @@ function App() {
 
             setSessionHistory([
                 buildUserHistoryEntry(userPrompt, timestamp),
-                buildAssistantHistoryEntry(result.text, result.images, timestamp),
+                buildAssistantHistoryEntry(result.text, result.images, timestamp, result.errors),
             ]);
 
-            showToast('Images generated successfully!', 'success');
+            if (result.errors && result.errors.length > 0) {
+                const errorCount = result.errors.length;
+                const successCount = result.images.length;
+                showToast(`Generated ${successCount} images, ${errorCount} failed`, 'warning');
+            } else {
+                showToast('Images generated successfully!', 'success');
+            }
         } catch (err) {
             const errorMsg = err.message || 'Failed to generate images. Please try again.';
             setError(errorMsg);
@@ -94,10 +100,16 @@ function App() {
             setSessionHistory((prev) => [
                 ...prev,
                 buildUserHistoryEntry(modificationPrompt, timestamp, selectedImageIds),
-                buildAssistantHistoryEntry(result.text, result.images, timestamp),
+                buildAssistantHistoryEntry(result.text, result.images, timestamp, result.errors),
             ]);
 
-            showToast('Images modified successfully!', 'success');
+            if (result.errors && result.errors.length > 0) {
+                const errorCount = result.errors.length;
+                const successCount = result.images.length;
+                showToast(`Modified ${successCount} images, ${errorCount} failed`, 'warning');
+            } else {
+                showToast('Images modified successfully!', 'success');
+            }
         } catch (err) {
             const errorMsg = err.message || 'Failed to modify images. Please try again.';
             setError(errorMsg);
@@ -124,6 +136,36 @@ function App() {
         setTimeout(() => {
             setToast(null);
         }, 4000);
+    };
+
+    const handleSelectSession = async (sessionId) => {
+        setShowGallery(false);
+        setError(null);
+
+        try {
+            const session = await getSession(sessionId);
+            const artForm = artForms.find((af) => af.key === session.artForm);
+
+            setSessionId(session.sessionId);
+            setGeneratedImages(session.images);
+            setCurrentArtForm(artForm);
+            setCurrentProduct(session.productType);
+            setSessionHistory(session.history || []);
+
+            // Set current text to the latest model response
+            const lastModelEntry = session.history
+                ?.slice()
+                .reverse()
+                .find((entry) => entry.role === 'model');
+            setCurrentText(lastModelEntry?.text || '');
+
+            showToast('Session loaded successfully', 'success');
+        } catch (err) {
+            const errorMsg = err.message || 'Failed to load session';
+            setError(errorMsg);
+            showToast(errorMsg, 'error');
+            console.error(err);
+        }
     };
 
     return (
@@ -171,7 +213,12 @@ function App() {
                 />
             )}
 
-            {showGallery && <Gallery onClose={() => setShowGallery(false)} />}
+            {showGallery && (
+                <Gallery
+                    onClose={() => setShowGallery(false)}
+                    onSelectSession={handleSelectSession}
+                />
+            )}
 
             {toast && (
                 <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />

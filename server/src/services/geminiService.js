@@ -4,21 +4,45 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { parseGeminiError, createError } from '../utils/error-parser.js';
-import {
-    MIME_TYPES,
-    GEMINI_CONFIG,
-    IMAGE_GENERATION,
-    GEMINI_MODEL_ID,
-} from '../config/constants.js';
+import { MIME_TYPES, IMAGE_GENERATION, GEMINI_MODEL_ID } from '../config/constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// Helper to aggregate Promise.allSettled results
+function aggregateResults(results, additionalErrorData = []) {
+    const allImages = [];
+    const allTexts = [];
+    const allResponseParts = [];
+    const errors = [];
+
+    results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+            allImages.push(...result.value.images);
+            allTexts.push(...result.value.texts);
+            allResponseParts.push(...result.value.parts);
+        } else {
+            errors.push({
+                index: index + 1,
+                message: result.reason.message || 'Unknown error',
+                statusCode: result.reason.statusCode || 500,
+                ...(additionalErrorData[index] || {}),
+            });
+        }
+    });
+
+    return {
+        images: allImages,
+        text: allTexts.join('\n'),
+        responseParts: allResponseParts,
+        errors: errors.length > 0 ? errors : undefined,
+    };
+}
+
 function buildGeminiConfig() {
     return {
-        responseModalities: GEMINI_CONFIG.RESPONSE_MODALITIES,
         imageConfig: {
             aspectRatio: IMAGE_GENERATION.ASPECT_RATIO,
             imageSize: IMAGE_GENERATION.IMAGE_SIZE,
@@ -33,37 +57,37 @@ function processResponseParts(response, storeFilePaths = false) {
 
     for (const candidate of response.candidates || []) {
         for (const part of candidate.content?.parts || []) {
+            const storedPart = {};
+            let hasContent = false;
+
             if (part.inlineData) {
                 const savedPath = saveBase64Image(part.inlineData.data, part.inlineData.mimeType);
                 images.push(savedPath);
 
                 if (storeFilePaths) {
-                    const storedPart = {
-                        inlineData: {
-                            mimeType: part.inlineData.mimeType,
-                            filePath: savedPath,
-                        },
+                    storedPart.inlineData = {
+                        mimeType: part.inlineData.mimeType,
+                        filePath: savedPath,
                     };
-                    // Store thoughtSignature with the part it belongs to
-                    if (part.thoughtSignature) {
-                        storedPart.thoughtSignature = part.thoughtSignature;
-                    }
-                    parts.push(storedPart);
+                    hasContent = true;
                 }
             }
+
             if (part.text) {
                 texts.push(part.text);
                 if (storeFilePaths) {
-                    const storedPart = { text: part.text };
-                    if (part.thoughtSignature) {
-                        storedPart.thoughtSignature = part.thoughtSignature;
-                    }
-                    parts.push(storedPart);
+                    storedPart.text = part.text;
+                    hasContent = true;
                 }
             }
-            // Standalone thoughtSignature (not attached to a part) - still store separately
-            if (part.thoughtSignature && !part.inlineData && !part.text && storeFilePaths) {
-                parts.push({ thoughtSignature: part.thoughtSignature });
+
+            if (part.thoughtSignature && storeFilePaths) {
+                storedPart.thoughtSignature = part.thoughtSignature;
+                hasContent = true;
+            }
+
+            if (hasContent) {
+                parts.push(storedPart);
             }
         }
     }
@@ -109,22 +133,24 @@ function saveBase64Image(base64Data, mimeType) {
     }
 }
 
-function buildPrompt(artForm, productType, numberOfImages, additionalInstructions) {
+function buildPrompt(artForm, productType, additionalInstructions) {
     let prompt = `
-Create a professional e-commerce product photograph of a ${productType} featuring authentic ${artForm.name} artwork.
+Generate a professional e-commerce product image of a ${productType} featuring authentic ${artForm.name} artwork.
 
 The ${productType} should be decorated with ${artForm.name} art, which is characterized by: ${artForm.stylePrompt}
 
-The scene is a clean, studio-lit product shot against a simple background. The ${productType} is positioned at a slight angle to show the artwork clearly. The lighting is soft and even, creating subtle shadows that give the product dimension. The ${artForm.name} design is the focal point, with traditional motifs and colors applied authentically to the ${productType} surface.
-
-The final image should look like a high-end product catalog photo, suitable for an artisan marketplace.
+Requirements:
+- Clean, studio-lit product shot against a simple background
+- ${productType} positioned at a slight angle to show the artwork clearly
+- Soft, even lighting creating subtle shadows for dimension
+- ${artForm.name} design as the focal point with traditional motifs and colors applied authentically
+- High-end product catalog photo style suitable for an artisan marketplace
 `;
-    if (numberOfImages > 1) {
-        prompt += `\n\nGenerate ${numberOfImages} distinct product variations, each with a unique design composition.`;
-    }
+
     if (additionalInstructions) {
-        prompt += `\n\nSpecific requirements: ${additionalInstructions}`;
+        prompt += `\nSpecific requirements: ${additionalInstructions}`;
     }
+
     return prompt.trim();
 }
 
@@ -145,21 +171,11 @@ function addParts(messageParts, historyParts, text, images = []) {
     }
 }
 
-function buildRequestParts(
-    artForm,
-    productType,
-    numberOfImages,
-    referenceImagePath,
-    additionalInstructions
-) {
+function buildRequestParts(artForm, productType, referenceImagePath, additionalInstructions) {
     const messageParts = [];
     const historyParts = [];
 
-    addParts(
-        messageParts,
-        historyParts,
-        buildPrompt(artForm, productType, numberOfImages, additionalInstructions)
-    );
+    addParts(messageParts, historyParts, buildPrompt(artForm, productType, additionalInstructions));
 
     if (artForm.referenceImages.length > 0) {
         addParts(
@@ -189,119 +205,194 @@ export async function generateProductImages({
     additionalInstructions,
     numberOfImages = 1,
 }) {
+    console.log('[Gemini] Starting image generation:', {
+        artForm: artForm.name,
+        productType,
+        numberOfImages,
+        hasReferenceImage: !!referenceImagePath,
+        hasAdditionalInstructions: !!additionalInstructions,
+    });
+
+    const startTime = Date.now();
+
+    // Build request parts once (same for all parallel calls)
     const { messageParts, historyParts } = buildRequestParts(
         artForm,
         productType,
-        numberOfImages,
         referenceImagePath,
         additionalInstructions
     );
 
-    let response;
-    try {
-        response = await ai.models.generateContent({
-            model: GEMINI_MODEL_ID,
-            config: buildGeminiConfig(),
-            contents: [{ role: 'user', parts: messageParts }],
-        });
-    } catch (error) {
-        console.error('Error generating images:', error);
-        const { message, statusCode } = parseGeminiError(error);
-        throw createError(message, statusCode);
-    }
+    console.log('[Gemini] Request parts count:', {
+        messageParts: messageParts.length,
+        historyParts: historyParts.length,
+    });
 
-    const result = processResponseParts(response, true);
+    // Create array of promises for parallel execution
+    const promises = Array.from({ length: numberOfImages }, async (_, i) => {
+        console.log(`[Gemini] Starting request ${i + 1}/${numberOfImages}`);
+
+        try {
+            const response = await ai.models.generateContent({
+                model: GEMINI_MODEL_ID,
+                config: buildGeminiConfig(),
+                contents: [{ role: 'user', parts: messageParts }],
+            });
+
+            console.log(`[Gemini] Received response ${i + 1}/${numberOfImages}`);
+            return processResponseParts(response, true);
+        } catch (error) {
+            console.error(`[Gemini] API error on request ${i + 1}/${numberOfImages}:`, {
+                message: error.message,
+                status: error.status,
+                code: error.code,
+            });
+            const { message, statusCode } = parseGeminiError(error);
+            throw createError(message, statusCode);
+        }
+    });
+
+    const results = await Promise.allSettled(promises);
+
+    const duration = Date.now() - startTime;
+    console.log('[Gemini] All requests complete in', duration, 'ms');
+
+    const aggregated = aggregateResults(results);
+
+    console.log('[Gemini] Generation complete:', {
+        totalImagesGenerated: aggregated.images.length,
+        requestedImages: numberOfImages,
+        failedRequests: aggregated.errors?.length || 0,
+    });
 
     return {
-        images: result.images,
-        text: result.texts.join('\n'),
+        ...aggregated,
         requestParts: historyParts,
-        responseParts: result.parts,
     };
 }
 
 function rehydratePart(part) {
+    const rehydrated = {};
+
     if (part.inlineData?.filePath) {
-        const rehydrated = fileToInlineData(part.inlineData.filePath);
-        // Preserve thoughtSignature if it was stored with the part
-        if (rehydrated && part.thoughtSignature) {
-            rehydrated.thoughtSignature = part.thoughtSignature;
-        }
-        return rehydrated;
+        const inlineData = fileToInlineData(part.inlineData.filePath);
+        if (!inlineData) return null;
+        Object.assign(rehydrated, inlineData);
     }
+
     if (part.text) {
-        const textPart = { text: part.text };
-        if (part.thoughtSignature) {
-            textPart.thoughtSignature = part.thoughtSignature;
-        }
-        return textPart;
+        rehydrated.text = part.text;
     }
-    if (part.thoughtSignature && !part.inlineData && !part.text) {
-        // Standalone thought signature - only keep if not filtering
-        return { thoughtSignature: part.thoughtSignature };
+
+    if (part.thoughtSignature) {
+        rehydrated.thoughtSignature = part.thoughtSignature;
     }
-    return null;
+
+    return Object.keys(rehydrated).length > 0 ? rehydrated : null;
 }
 
 // Rehydrate history by converting file paths back to base64
-// When filtering by selectedImageIds, only drop unselected images
+// When filtering by selectedImageIds, only include those specific images
 function rehydrateHistory(history, selectedImageIds = []) {
-    const hasSelection = selectedImageIds.length > 0;
     const selectedSet = new Set(selectedImageIds);
+    const hasSelection = selectedSet.size > 0;
 
     return history
         .map((message) => {
-            if (hasSelection && message.role === 'model') {
-                // Filter out unselected images, keep everything else
-                const filteredParts = message.parts
-                    .filter((part) => {
-                        if (part.inlineData?.filePath) {
-                            return selectedSet.has(part.inlineData.filePath);
-                        }
-                        return true; // Keep text, signatures, etc.
-                    })
-                    .map(rehydratePart)
-                    .filter(Boolean);
+            const parts = message.parts
+                .filter((part) => {
+                    if (hasSelection && message.role === 'model' && part.inlineData?.filePath) {
+                        return selectedSet.has(part.inlineData.filePath);
+                    }
+                    return true;
+                })
+                .map(rehydratePart)
+                .filter(Boolean);
 
-                return {
-                    role: message.role,
-                    parts: filteredParts,
-                };
-            }
-
-            // User messages: keep everything
-            return {
-                role: message.role,
-                parts: message.parts.map(rehydratePart).filter(Boolean),
-            };
+            return parts.length > 0 ? { role: message.role, parts } : null;
         })
-        .filter((message) => message.parts.length > 0);
+        .filter(Boolean);
 }
 
 // Chat SDK handles thought signatures automatically
 export async function modifyImages(history, modificationPrompt, selectedImageIds = []) {
-    const rehydratedHistory = rehydrateHistory(history, selectedImageIds);
-
-    const chat = ai.chats.create({
-        model: GEMINI_MODEL_ID,
-        config: buildGeminiConfig(),
-        history: rehydratedHistory,
+    console.log('[Gemini] Starting image modification:', {
+        historyLength: history.length,
+        modificationPrompt: modificationPrompt.substring(0, 100),
+        selectedImagesCount: selectedImageIds.length,
     });
 
-    let response;
-    try {
-        response = await chat.sendMessage({ message: modificationPrompt });
-    } catch (error) {
-        console.error('Error modifying images:', error);
-        const { message, statusCode } = parseGeminiError(error);
-        throw createError(message, statusCode);
+    const startTime = Date.now();
+
+    const imagesToModify =
+        selectedImageIds.length > 0
+            ? selectedImageIds
+            : history
+                  .slice()
+                  .reverse()
+                  .find((entry) => entry.role === 'model')
+                  ?.parts.filter((p) => p.inlineData?.filePath)
+                  .map((p) => p.inlineData.filePath) || [];
+
+    if (imagesToModify.length === 0) {
+        throw createError('No images found to modify', 400);
     }
 
-    const result = processResponseParts(response, true);
+    console.log('[Gemini] Images to modify:', imagesToModify.length);
 
-    return {
-        images: result.images,
-        text: result.texts.join('\n'),
-        responseParts: result.parts,
-    };
+    // Create a separate chat for each image
+    const promises = imagesToModify.map(async (imageId, i) => {
+        console.log(
+            `[Gemini] Starting modification ${i + 1}/${imagesToModify.length} for image: ${imageId}`
+        );
+
+        const rehydratedHistory = rehydrateHistory(history, [imageId]);
+
+        console.log(`[Gemini] Rehydrated history for image ${i + 1}:`, {
+            messages: rehydratedHistory.length,
+        });
+
+        const chat = ai.chats.create({
+            model: GEMINI_MODEL_ID,
+            config: buildGeminiConfig(),
+            history: rehydratedHistory,
+        });
+
+        try {
+            const response = await chat.sendMessage({ message: modificationPrompt });
+            console.log(
+                `[Gemini] Received modification response ${i + 1}/${imagesToModify.length}`
+            );
+            return processResponseParts(response, true);
+        } catch (error) {
+            console.error(
+                `[Gemini] Modification API error on request ${i + 1}/${imagesToModify.length}:`,
+                {
+                    message: error.message,
+                    status: error.status,
+                    code: error.code,
+                }
+            );
+            const { message, statusCode } = parseGeminiError(error);
+            throw createError(message, statusCode);
+        }
+    });
+
+    const results = await Promise.allSettled(promises);
+
+    const duration = Date.now() - startTime;
+    console.log('[Gemini] All modification requests complete in', duration, 'ms');
+
+    const aggregated = aggregateResults(
+        results,
+        imagesToModify.map((imageId) => ({ imageId }))
+    );
+
+    console.log('[Gemini] Modification complete:', {
+        imagesGenerated: aggregated.images.length,
+        requestedModifications: imagesToModify.length,
+        failedRequests: aggregated.errors?.length || 0,
+    });
+
+    return aggregated;
 }

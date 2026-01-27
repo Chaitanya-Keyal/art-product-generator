@@ -54,6 +54,7 @@ router.post('/', upload.single('referenceImage'), async (req, res) => {
             sessionId,
             images: result.images,
             text: result.text,
+            ...(result.errors && { errors: result.errors }),
         });
     } catch (error) {
         sendErrorResponse(res, error, 'Generation error');
@@ -96,6 +97,7 @@ router.post('/modify/:sessionId', async (req, res) => {
             sessionId,
             images: result.images,
             text: result.text,
+            ...(result.errors && { errors: result.errors }),
         });
     } catch (error) {
         sendErrorResponse(res, error, 'Modification error');
@@ -171,12 +173,45 @@ router.get('/session/:sessionId', async (req, res) => {
             return res.status(404).json({ error: 'Session not found or expired' });
         }
 
+        // Convert history to client format with formatted image URLs
+        const history = session.history.map((entry) => {
+            if (entry.role === 'model') {
+                const images = entry.parts
+                    .filter((p) => p.inlineData?.filePath)
+                    .map((p) => p.inlineData.filePath);
+                const text = entry.parts
+                    .filter((p) => p.text)
+                    .map((p) => p.text)
+                    .join('\n');
+
+                return {
+                    role: 'model',
+                    text: text || null,
+                    images: formatImageUrls(images),
+                    timestamp: entry.createdAt || session.createdAt,
+                };
+            } else {
+                // User entry
+                const text = entry.parts
+                    .filter((p) => p.text)
+                    .map((p) => p.text)
+                    .join('\n');
+
+                return {
+                    role: 'user',
+                    prompt: text,
+                    timestamp: entry.createdAt || session.createdAt,
+                };
+            }
+        });
+
         res.json({
             success: true,
             sessionId: session.sessionId,
             artForm: session.artForm,
             productType: session.productType,
             images: formatImageUrls(session.generatedImages),
+            history,
             createdAt: session.createdAt,
             updatedAt: session.updatedAt,
         });

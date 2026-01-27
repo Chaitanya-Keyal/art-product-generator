@@ -7,12 +7,13 @@ export function buildUserHistoryEntry(prompt, timestamp, selectedImages = []) {
     };
 }
 
-export function buildAssistantHistoryEntry(text, images, timestamp) {
+export function buildAssistantHistoryEntry(text, images, timestamp, errors = null) {
     return {
-        role: 'assistant',
+        role: 'model',
         text: text || 'Images generated successfully',
         images,
         timestamp: timestamp instanceof Date ? timestamp.toISOString() : timestamp,
+        ...(errors && errors.length > 0 && { errors }),
     };
 }
 

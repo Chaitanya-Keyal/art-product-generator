@@ -5,7 +5,7 @@ import { countWithLabel } from '../utils/text';
 import ImageModal from './ImageModal';
 import Collapsible from './Collapsible';
 
-function Gallery({ onClose }) {
+function Gallery({ onClose, onSelectSession }) {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -122,9 +122,29 @@ function Gallery({ onClose }) {
                                             {session.productType}
                                         </h3>
                                     </div>
-                                    <span className="gallery-session-date">
-                                        {formatDate(session.createdAt)}
-                                    </span>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '1rem',
+                                        }}
+                                    >
+                                        <span className="gallery-session-date">
+                                            {formatDate(session.createdAt)}
+                                        </span>
+                                        {onSelectSession && (
+                                            <button
+                                                className="btn btn-primary"
+                                                style={{
+                                                    padding: '0.5rem 1rem',
+                                                    fontSize: '0.875rem',
+                                                }}
+                                                onClick={() => onSelectSession(session.sessionId)}
+                                            >
+                                                Open
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                                 {renderSessionImages(session)}
                             </div>
