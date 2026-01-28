@@ -61,7 +61,7 @@ function GenerationForm({ artForms, onGenerate, generating }) {
             } finally {
                 setLoadingCost(false);
             }
-        }, 500); // 500ms debounce
+        }, 500);
 
         return () => clearTimeout(timeoutId);
     }, [artFormKey, productType, additionalInstructions, numberOfImages, referenceImage]);

@@ -19,7 +19,6 @@ import { SESSION_LIMITS, IMAGE_GENERATION } from '../config/constants.js';
 
 const router = express.Router();
 
-// Helper to group images by turn and format for response
 function formatSessionTurns(generatedImages) {
     const imagesByTurn = {};
     for (const img of generatedImages) {
@@ -43,7 +42,6 @@ function formatSessionTurns(generatedImages) {
         }));
 }
 
-// Helper to normalize generation params
 function normalizeGenerationParams(body, artForms, referenceImage) {
     const { artFormKey, productType, additionalInstructions, numberOfImages } = body;
 
@@ -53,7 +51,7 @@ function normalizeGenerationParams(body, artForms, referenceImage) {
     return {
         artForm: artForms[artFormKey],
         productType: productType.trim(),
-        referenceImage, // Now contains both id and filePath
+        referenceImage,
         additionalInstructions: additionalInstructions?.trim(),
         numberOfImages: Math.min(
             Math.max(parseInt(numberOfImages) || IMAGE_GENERATION.DEFAULT_COUNT, 1),
@@ -198,7 +196,6 @@ router.get('/session/:sessionId', async (req, res) => {
     }
 });
 
-// Cost estimation - uses same request building logic as actual API calls
 router.post('/estimate-cost', (req, res) => {
     try {
         const params = normalizeGenerationParams(

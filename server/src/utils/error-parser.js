@@ -9,7 +9,6 @@ export function parseGeminiError(error) {
             statusCode = errorData.error.code || statusCode;
         }
     } catch (_e) {
-        // Not JSON, check if error has statusCode property
         if (error.statusCode) {
             statusCode = error.statusCode;
         }

@@ -6,7 +6,6 @@ export function sendSuccessResponse(res, data) {
     res.json({
         success: true,
         ...data,
-        images: data.images ? formatImageUrls(data.images) : undefined,
     });
 }
 

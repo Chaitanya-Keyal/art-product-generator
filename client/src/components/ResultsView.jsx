@@ -47,7 +47,6 @@ function ResultsView({
     const latestResponse = modelResponses[modelResponses.length - 1];
 
     const getImageId = (image) => {
-        // Images are now { id, url } objects
         return image.id;
     };
 
@@ -95,7 +94,7 @@ function ResultsView({
             } finally {
                 setLoadingCost(false);
             }
-        }, 500); // 500ms debounce
+        }, 500);
 
         return () => clearTimeout(timeoutId);
     }, [sessionId, modificationPrompt, selectedIds]);

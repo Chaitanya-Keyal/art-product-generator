@@ -17,7 +17,6 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 // ============================================================================
 
 function fileToBase64(filePath) {
-    // All file paths should be relative (e.g., 'uploads/file.png', 'assets/art_forms/warli/1.jpg')
     const absolutePath = path.join(process.cwd(), filePath);
 
     if (!fs.existsSync(absolutePath)) {
@@ -92,10 +91,6 @@ Requirements:
     return prompt;
 }
 
-/**
- * Prepare a generation request - builds parts for API and DB storage
- * @param {boolean} estimateOnly - If true, skip file I/O and just calculate metadata
- */
 export function prepareGenerationRequest({
     artForm,
     productType,
@@ -107,18 +102,15 @@ export function prepareGenerationRequest({
     let textLength = 0;
     let inputImageCount = 0;
 
-    // Build prompt text
     const prompt = buildPrompt(artForm, productType, additionalInstructions);
     textLength += prompt.length;
 
-    // Count art form reference images
     if (artForm.referenceImages.length > 0) {
         const refText = `Here are reference images showing the ${artForm.name} art style:`;
         textLength += refText.length;
         inputImageCount += artForm.referenceImages.length;
     }
 
-    // Count user reference image
     if (referenceImage) {
         const refText = `Here is a reference image of the ${productType} to use as the base:`;
         textLength += refText.length;
@@ -127,12 +119,10 @@ export function prepareGenerationRequest({
 
     const metadata = { inputImages: inputImageCount, outputImages: numberOfImages, textLength };
 
-    // For cost estimation, skip file I/O
     if (estimateOnly) {
         return { metadata };
     }
 
-    // Build full request with file data
     const messageParts = [];
     const baseUserInput = [];
 
@@ -175,10 +165,6 @@ export function prepareGenerationRequest({
     return { messageParts, baseUserInput, metadata };
 }
 
-/**
- * Prepare a modification request - builds chat history for API
- * @param {boolean} estimateOnly - If true, skip file I/O and just calculate metadata
- */
 export function prepareModificationRequest({
     baseUserInput,
     generatedImages,
@@ -186,7 +172,6 @@ export function prepareModificationRequest({
     selectedImageIds,
     estimateOnly = false,
 }) {
-    // Determine which images to modify
     let imagesToModify;
     if (selectedImageIds && selectedImageIds.length > 0) {
         imagesToModify = generatedImages.filter((img) => selectedImageIds.includes(img.id));
@@ -202,7 +187,6 @@ export function prepareModificationRequest({
         throw createError('No images found to modify', 400);
     }
 
-    // Calculate metadata without file I/O
     // Each image gets its own chat with the full base text + modification prompt
     let baseTextLength = 0;
     let baseImageCount = 0;
@@ -225,12 +209,9 @@ export function prepareModificationRequest({
         textLength,
     };
 
-    // For cost estimation, skip file I/O
     if (estimateOnly) {
         return { metadata };
     }
-
-    // Build full request with file data (imagesToModify already computed above)
 
     const userParts = [];
     for (const part of baseUserInput) {
@@ -250,7 +231,6 @@ export function prepareModificationRequest({
             throw createError(`Could not load image ${image.filePath}`, 400);
         }
 
-        // Load thought signature from file (image.thoughtSignature is a file path)
         const signature = loadThoughtSignature(image.thoughtSignature);
 
         return {
@@ -278,41 +258,33 @@ export function prepareModificationRequest({
 // ============================================================================
 
 function calculateCost({ inputImages, outputImages, textLength }) {
-    // Per-request values
     const tokensPerRequest = Math.ceil(textLength / GEMINI_PRICING.CHARS_PER_TOKEN);
 
-    // Total values (same request sent for each output image)
     const totalInputImages = inputImages * outputImages;
     const totalTokens = tokensPerRequest * outputImages;
 
-    // Costs
     const imageInputCost = totalInputImages * GEMINI_PRICING.IMAGE_INPUT;
     const imageOutputCost = outputImages * GEMINI_PRICING.IMAGE_OUTPUT;
     const textInputCost = totalTokens * GEMINI_PRICING.TEXT_INPUT;
     const totalCost = imageInputCost + imageOutputCost + textInputCost;
 
     return {
-        // Per-request breakdown (for display clarity)
         perRequest: {
             inputImages,
             textTokens: tokensPerRequest,
             textChars: textLength,
         },
-        // Number of requests
         numberOfRequests: outputImages,
-        // Totals
         totals: {
             inputImages: totalInputImages,
             outputImages,
             textTokens: totalTokens,
         },
-        // Pricing rates
         rates: {
             imageInput: GEMINI_PRICING.IMAGE_INPUT,
             imageOutput: GEMINI_PRICING.IMAGE_OUTPUT,
             textInputPerToken: GEMINI_PRICING.TEXT_INPUT,
         },
-        // Cost breakdown
         costs: {
             imageInput: parseFloat(imageInputCost.toFixed(4)),
             imageOutput: parseFloat(imageOutputCost.toFixed(4)),
