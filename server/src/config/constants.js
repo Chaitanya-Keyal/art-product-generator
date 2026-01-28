@@ -3,7 +3,7 @@ export const IMAGE_GENERATION = {
     MAX_COUNT: 4,
     ASPECT_RATIO: '1:1',
     IMAGE_SIZE: '2K',
-    SUPPORTED_FORMATS: ['.jpg', '.jpeg', '.png', '.webp', '.gif'],
+    SUPPORTED_FORMATS: ['.jpg', '.jpeg', '.png', '.webp'],
 };
 
 export const MIME_TYPES = {
@@ -11,7 +11,6 @@ export const MIME_TYPES = {
     '.jpeg': 'image/jpeg',
     '.png': 'image/png',
     '.webp': 'image/webp',
-    '.gif': 'image/gif',
 };
 
 export const GEMINI_MODEL_ID = 'gemini-3-pro-image-preview';
@@ -23,7 +22,7 @@ export const SESSION_LIMITS = {
 
 export const UPLOAD_LIMITS = {
     MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
-    ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
 };
 
 export const GEMINI_PRICING = {
