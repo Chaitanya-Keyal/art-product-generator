@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, Check, Upload } from 'lucide-react';
 import { estimateGenerationCost } from '../api';
 import CostEstimate from './CostEstimate';
 
@@ -163,19 +164,11 @@ function GenerationForm({ artForms, onGenerate, generating }) {
                                 Select an art form...
                             </span>
                         )}
-                        <svg
+                        <ChevronDown
                             className={`art-form-dropdown-arrow ${artFormDropdownOpen ? 'open' : ''}`}
-                            width="20"
-                            height="20"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                        >
-                            <path
-                                fillRule="evenodd"
-                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                clipRule="evenodd"
-                            />
-                        </svg>
+                            size={20}
+                            strokeWidth={2.5}
+                        />
                     </button>
                     {artFormDropdownOpen && (
                         <div className="art-form-dropdown-menu">
@@ -205,18 +198,7 @@ function GenerationForm({ artForms, onGenerate, generating }) {
                                         </span>
                                     </div>
                                     {artFormKey === af.key && (
-                                        <svg
-                                            width="20"
-                                            height="20"
-                                            viewBox="0 0 20 20"
-                                            fill="var(--primary)"
-                                        >
-                                            <path
-                                                fillRule="evenodd"
-                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                clipRule="evenodd"
-                                            />
-                                        </svg>
+                                        <Check size={20} strokeWidth={2.5} color="var(--primary)" />
                                     )}
                                 </button>
                             ))}
@@ -297,7 +279,9 @@ function GenerationForm({ artForms, onGenerate, generating }) {
                         </div>
                     ) : (
                         <>
-                            <div className="file-upload-icon"></div>
+                            <div className="file-upload-icon">
+                                <Upload size={32} strokeWidth={2.5} />
+                            </div>
                             <p className="file-upload-text">
                                 Click to upload or drag and drop
                                 <br />
@@ -352,17 +336,6 @@ function GenerationForm({ artForms, onGenerate, generating }) {
                         </button>
                     ))}
                 </div>
-                {numberOfImages > 1 && (
-                    <p
-                        style={{
-                            fontSize: '0.75rem',
-                            color: 'var(--text-secondary)',
-                            marginTop: '0.5rem',
-                        }}
-                    >
-                        The AI may sometimes return fewer images than requested
-                    </p>
-                )}
             </div>
 
             <CostEstimate

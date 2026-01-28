@@ -1,4 +1,12 @@
 import { useEffect } from 'react';
+import { Check, X, Info, AlertTriangle } from 'lucide-react';
+
+const iconMap = {
+    success: Check,
+    error: X,
+    info: Info,
+    warning: AlertTriangle,
+};
 
 function Toast({ message, type = 'info', onClose }) {
     useEffect(() => {
@@ -9,19 +17,16 @@ function Toast({ message, type = 'info', onClose }) {
         return () => clearTimeout(timer);
     }, [onClose]);
 
-    const icons = {
-        success: '✓',
-        error: '✕',
-        info: 'ℹ',
-        warning: '⚠',
-    };
+    const IconComponent = iconMap[type] || Info;
 
     return (
         <div className={`toast toast-${type}`}>
-            <span className="toast-icon">{icons[type]}</span>
+            <span className="toast-icon" aria-hidden="true">
+                <IconComponent size={20} strokeWidth={2.5} />
+            </span>
             <span className="toast-message">{message}</span>
             <button className="toast-close" onClick={onClose} aria-label="Close">
-                ×
+                <X size={20} strokeWidth={2.5} />
             </button>
         </div>
     );

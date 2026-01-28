@@ -1,3 +1,5 @@
+import { ChevronDown } from 'lucide-react';
+
 function Collapsible({
     title,
     isExpanded,
@@ -39,11 +41,13 @@ function Collapsible({
                     <>
                         <span
                             style={{
+                                display: 'flex',
+                                alignItems: 'center',
                                 transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
                                 transition: 'transform 0.2s',
                             }}
                         >
-                            ▼
+                            <ChevronDown size={16} strokeWidth={2.5} />
                         </span>
                         {title}
                     </>
@@ -52,11 +56,13 @@ function Collapsible({
                         <span>{title}</span>
                         <span
                             style={{
+                                display: 'flex',
+                                alignItems: 'center',
                                 transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
                                 transition: 'transform 0.2s',
                             }}
                         >
-                            ▼
+                            <ChevronDown size={20} strokeWidth={2.5} />
                         </span>
                     </>
                 )}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Images } from 'lucide-react';
 import GenerationForm from './components/GenerationForm';
 import ResultsView from './components/ResultsView';
 import Gallery from './components/Gallery';
@@ -162,6 +163,7 @@ function App() {
                     className="btn btn-secondary gallery-button"
                     onClick={() => setShowGallery(true)}
                 >
+                    <Images size={20} strokeWidth={2.5} />
                     View Gallery
                 </button>
             </header>

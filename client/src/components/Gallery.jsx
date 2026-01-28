@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { getAllSessions } from '../api';
 import { formatDate } from '../utils/date-formatter';
 import ImageModal from './ImageModal';
@@ -53,7 +54,7 @@ function Gallery({ onClose, onSelectSession }) {
                 <div className="gallery-header">
                     <h2>All Generated Images</h2>
                     <button className="gallery-close" onClick={onClose}>
-                        ×
+                        <X size={24} strokeWidth={2.5} />
                     </button>
                 </div>
 
