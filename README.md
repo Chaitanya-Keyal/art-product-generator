@@ -2,6 +2,8 @@
 
 An AI-powered web app that generates product visualizations in traditional Indian art styles using Google Gemini.
 
+**[View Demo](DEMO.md)**
+
 ## Features
 
 - **12 Indian Art Forms**: Blue Pottery, Cheriyal, Gond, Hand Sculpting, Kalamkari, Kavad, Madurkathi, Miniature, Nirmal, Pattachitra, Tholu Bommalata, Warli
