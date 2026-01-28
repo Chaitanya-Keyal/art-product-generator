@@ -32,18 +32,18 @@ function fileToBase64(filePath) {
     return { mimeType, data };
 }
 
-function saveBase64Image(base64Data, mimeType) {
+function saveBase64Image(base64Data, mimeType, imageId) {
     const ext = mimeType.includes('png') ? '.png' : '.jpg';
-    const filename = `generated_${uuidv4()}${ext}`;
+    const filename = `${imageId}${ext}`;
     const absPath = path.join(process.cwd(), 'uploads', filename);
 
     fs.writeFileSync(absPath, Buffer.from(base64Data, 'base64'));
-    return `uploads/${filename}`;
+    return { id: imageId, filePath: `uploads/${filename}` };
 }
 
-function saveThoughtSignature(signature) {
+function saveThoughtSignature(signature, imageId) {
     if (!signature) return null;
-    const filename = `sig_${uuidv4()}.txt`;
+    const filename = `${imageId}_sig.txt`;
     const absPath = path.join(process.cwd(), 'uploads', filename);
     fs.writeFileSync(absPath, signature, 'utf8');
     return `uploads/${filename}`;
@@ -99,7 +99,7 @@ Requirements:
 export function prepareGenerationRequest({
     artForm,
     productType,
-    referenceImagePath,
+    referenceImage,
     additionalInstructions,
     numberOfImages,
     estimateOnly = false,
@@ -119,7 +119,7 @@ export function prepareGenerationRequest({
     }
 
     // Count user reference image
-    if (referenceImagePath) {
+    if (referenceImage) {
         const refText = `Here is a reference image of the ${productType} to use as the base:`;
         textLength += refText.length;
         inputImageCount += 1;
@@ -153,18 +153,22 @@ export function prepareGenerationRequest({
         }
     }
 
-    if (referenceImagePath) {
+    if (referenceImage) {
         const refText = `Here is a reference image of the ${productType} to use as the base:`;
         messageParts.push({ text: refText });
         baseUserInput.push({ text: refText });
 
-        const imageData = fileToBase64(referenceImagePath);
+        const imageData = fileToBase64(referenceImage.filePath);
         if (!imageData) {
-            throw createError(`Reference image not found: ${referenceImagePath}`, 400);
+            throw createError(`Reference image not found: ${referenceImage.filePath}`, 400);
         }
         messageParts.push({ inlineData: imageData });
         baseUserInput.push({
-            inlineData: { mimeType: imageData.mimeType, filePath: referenceImagePath },
+            inlineData: {
+                id: referenceImage.id,
+                mimeType: imageData.mimeType,
+                filePath: referenceImage.filePath,
+            },
         });
     }
 
@@ -185,7 +189,7 @@ export function prepareModificationRequest({
     // Determine which images to modify
     let imagesToModify;
     if (selectedImageIds && selectedImageIds.length > 0) {
-        imagesToModify = generatedImages.filter((img) => selectedImageIds.includes(img.filePath));
+        imagesToModify = generatedImages.filter((img) => selectedImageIds.includes(img.id));
     } else {
         // When nothing selected, modify all images from the latest turn
         const latestTurn = Math.max(...generatedImages.map((img) => img.turn ?? 0));
@@ -340,9 +344,16 @@ function processResponse(response) {
     for (const candidate of response.candidates || []) {
         for (const part of candidate.content?.parts || []) {
             if (part.inlineData && !part.thought) {
+                const imageId = uuidv4();
+                const { id, filePath } = saveBase64Image(
+                    part.inlineData.data,
+                    part.inlineData.mimeType,
+                    imageId
+                );
                 images.push({
-                    filePath: saveBase64Image(part.inlineData.data, part.inlineData.mimeType),
-                    thoughtSignature: saveThoughtSignature(part.thoughtSignature),
+                    id,
+                    filePath,
+                    thoughtSignature: saveThoughtSignature(part.thoughtSignature, imageId),
                 });
             }
         }

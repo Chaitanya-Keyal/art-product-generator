@@ -27,7 +27,7 @@ function formatSessionTurns(generatedImages) {
         if (!imagesByTurn[turn]) {
             imagesByTurn[turn] = [];
         }
-        imagesByTurn[turn].push(img.filePath);
+        imagesByTurn[turn].push({ id: img.id, filePath: img.filePath });
     }
 
     // Convert to array sorted by turn (newest first)
@@ -36,12 +36,15 @@ function formatSessionTurns(generatedImages) {
         .sort((a, b) => b - a)
         .map((turn) => ({
             turn,
-            images: formatImageUrls(imagesByTurn[turn]),
+            images: imagesByTurn[turn].map((img) => ({
+                id: img.id,
+                url: formatImageUrls([img.filePath])[0],
+            })),
         }));
 }
 
 // Helper to normalize generation params
-function normalizeGenerationParams(body, artForms, referenceImagePath) {
+function normalizeGenerationParams(body, artForms, referenceImage) {
     const { artFormKey, productType, additionalInstructions, numberOfImages } = body;
 
     validateEnum(artFormKey, artForms, 'art form');
@@ -50,7 +53,7 @@ function normalizeGenerationParams(body, artForms, referenceImagePath) {
     return {
         artForm: artForms[artFormKey],
         productType: productType.trim(),
-        referenceImagePath,
+        referenceImage, // Now contains both id and filePath
         additionalInstructions: additionalInstructions?.trim(),
         numberOfImages: Math.min(
             Math.max(parseInt(numberOfImages) || IMAGE_GENERATION.DEFAULT_COUNT, 1),
@@ -61,8 +64,10 @@ function normalizeGenerationParams(body, artForms, referenceImagePath) {
 
 router.post('/', upload.single('referenceImage'), async (req, res) => {
     try {
-        const referenceImagePath = req.file ? `uploads/${req.file.filename}` : null;
-        const params = normalizeGenerationParams(req.body, artForms, referenceImagePath);
+        const referenceImage = req.file
+            ? { id: req.file.id, filePath: `uploads/${req.file.filename}` }
+            : null;
+        const params = normalizeGenerationParams(req.body, artForms, referenceImage);
         const result = await generateProductImages(params);
 
         const sessionId = uuidv4();
@@ -81,7 +86,10 @@ router.post('/', upload.single('referenceImage'), async (req, res) => {
 
         sendSuccessResponse(res, {
             sessionId,
-            images: result.images.map((img) => img.filePath),
+            images: result.images.map((img) => ({
+                id: img.id,
+                url: formatImageUrls([img.filePath])[0],
+            })),
             turn: 0,
             ...(result.errors && { errors: result.errors }),
         });
@@ -118,7 +126,10 @@ router.post('/modify/:sessionId', async (req, res) => {
 
         sendSuccessResponse(res, {
             sessionId,
-            images: result.images.map((img) => img.filePath),
+            images: result.images.map((img) => ({
+                id: img.id,
+                url: formatImageUrls([img.filePath])[0],
+            })),
             turn: newTurn,
             ...(result.errors && { errors: result.errors }),
         });

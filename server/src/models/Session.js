@@ -5,6 +5,7 @@ const userInputPartSchema = new mongoose.Schema(
     {
         text: { type: String },
         inlineData: {
+            id: { type: String }, // Optional ID for reference images
             mimeType: { type: String },
             filePath: { type: String },
         },
@@ -15,8 +16,9 @@ const userInputPartSchema = new mongoose.Schema(
 // Stores each generated image with its thought signature and turn info
 const generatedImageSchema = new mongoose.Schema(
     {
+        id: { type: String, required: true }, // Unique ID for this image
         filePath: { type: String, required: true },
-        thoughtSignature: { type: String },
+        thoughtSignature: { type: String }, // File path to thought signature
         turn: { type: Number, required: true }, // Which generation/modification turn
     },
     { _id: false }

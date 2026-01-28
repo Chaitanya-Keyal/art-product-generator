@@ -46,9 +46,9 @@ function ResultsView({
 
     const latestResponse = modelResponses[modelResponses.length - 1];
 
-    const getImageId = (imageUrl) => {
-        const match = imageUrl.match(/uploads\/[^/]+$/);
-        return match ? match[0] : imageUrl;
+    const getImageId = (image) => {
+        // Images are now { id, url } objects
+        return image.id;
     };
 
     const handleModifySubmit = (e) => {
@@ -60,8 +60,8 @@ function ResultsView({
         }
     };
 
-    const toggleImageSelection = (imageUrl) => {
-        const imageId = getImageId(imageUrl);
+    const toggleImageSelection = (image) => {
+        const imageId = getImageId(image);
         setSelectedIds((prev) => {
             const next = new Set(prev);
             if (next.has(imageId)) {

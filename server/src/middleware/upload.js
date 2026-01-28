@@ -8,9 +8,11 @@ const storage = multer.diskStorage({
         cb(null, path.join(process.cwd(), 'uploads'));
     },
     filename: (req, file, cb) => {
+        const id = uuidv4();
         const ext = path.extname(file.originalname);
-        const uniqueName = `${uuidv4()}${ext}`;
-        cb(null, uniqueName);
+        // Store ID in file object for later use
+        file.id = id;
+        cb(null, `${id}${ext}`);
     },
 });
 

@@ -52,11 +52,11 @@ function TurnList({
             <div className="gallery-grid">
                 {images.map((image, idx) => (
                     <div
-                        key={idx}
+                        key={image.id || idx}
                         className="gallery-image-card"
-                        onClick={() => onImageClick(image)}
+                        onClick={() => onImageClick(image.url)}
                     >
-                        <img src={image} alt={`${alt} ${idx + 1}`} loading="lazy" />
+                        <img src={image.url} alt={`${alt} ${idx + 1}`} loading="lazy" />
                     </div>
                 ))}
             </div>

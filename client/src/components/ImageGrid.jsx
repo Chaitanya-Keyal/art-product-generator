@@ -32,10 +32,10 @@ function ImageGrid({
                             </div>
                         )}
                         <img
-                            src={image}
+                            src={image.url || image}
                             alt={`${altPrefix} ${index + 1}`}
                             loading="lazy"
-                            onClick={() => onImageClick(image)}
+                            onClick={() => onImageClick(image.url || image)}
                             style={{ cursor: 'pointer' }}
                             onError={(e) => {
                                 e.target.style.display = 'none';
