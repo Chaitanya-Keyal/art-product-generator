@@ -138,3 +138,5 @@ newartform: {
 ```
 
 Reference images are automatically discovered from the assets directory at startup.
+
+Note on tuning: You can improve generation results by editing the `stylePrompt` for any art form in [server/src/config/artForms.js](server/src/config/artForms.js). Reference images may also be updated to better represent the style.
