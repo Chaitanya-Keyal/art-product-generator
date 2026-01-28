@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { countWithLabel } from '../utils/text';
 import ImageModal from './ImageModal';
-import ImageGrid from './ImageGrid';
-import Collapsible from './Collapsible';
+import TurnList from './TurnList';
 import { estimateModificationCost } from '../api';
 import CostEstimate from './CostEstimate';
 
@@ -36,8 +35,16 @@ function ResultsView({
         .map((entry, idx) => ({ ...entry, turnIndex: idx }))
         .filter((entry) => entry.role === 'model' && entry.images?.length > 0);
 
+    // Convert to turns structure for TurnList (sorted newest first)
+    const turns = modelResponses
+        .map((response) => ({
+            turn: response.turn ?? response.turnIndex,
+            images: response.images,
+            errors: response.errors,
+        }))
+        .reverse();
+
     const latestResponse = modelResponses[modelResponses.length - 1];
-    const previousResponses = modelResponses.slice(0, -1);
 
     const getImageId = (imageUrl) => {
         const match = imageUrl.match(/uploads\/[^/]+$/);
@@ -169,7 +176,7 @@ function ResultsView({
                 </div>
             )}
 
-            {latestResponse && (
+            {latestResponse && turns.length > 0 && (
                 <div className="card">
                     <div
                         style={{
@@ -180,7 +187,7 @@ function ResultsView({
                         }}
                     >
                         <h3 className="card-title" style={{ margin: 0 }}>
-                            Latest Results
+                            {turns.length > 1 ? 'Latest Results' : 'Generated Images'}
                         </h3>
                         {selectedIds.size > 0 && (
                             <span
@@ -203,48 +210,22 @@ function ResultsView({
                     >
                         Click images to select for modification (max 4)
                     </p>
-                    <ImageGrid
-                        images={latestResponse.images}
+                    <TurnList
+                        turns={turns}
                         onImageClick={setSelectedImage}
+                        altPrefix={`${productType} with ${artForm?.name} design`}
+                        expandedTurns={expandedTurns}
+                        onToggleTurn={(key) =>
+                            setExpandedTurns((prev) => ({
+                                ...prev,
+                                [key]: !prev[key],
+                            }))
+                        }
+                        useImageGrid={true}
                         selectedIds={selectedIds}
                         onToggleSelect={toggleImageSelection}
                         getImageId={getImageId}
-                        altPrefix={`${productType} with ${artForm?.name} design`}
                     />
-                </div>
-            )}
-
-            {previousResponses.length > 0 && (
-                <div className="card">
-                    <h3 className="card-title">Previous Generations</h3>
-                    {previousResponses.map((response, idx) => (
-                        <div
-                            key={idx}
-                            style={{
-                                marginBottom: idx < previousResponses.length - 1 ? '1rem' : 0,
-                            }}
-                        >
-                            <Collapsible
-                                title={`Turn ${(response.turn ?? idx) + 1} - ${countWithLabel(response.images.length, 'image')}`}
-                                isExpanded={expandedTurns[response.turn ?? idx]}
-                                onToggle={() =>
-                                    setExpandedTurns((prev) => ({
-                                        ...prev,
-                                        [response.turn ?? idx]: !prev[response.turn ?? idx],
-                                    }))
-                                }
-                            >
-                                <ImageGrid
-                                    images={response.images}
-                                    onImageClick={setSelectedImage}
-                                    selectedIds={selectedIds}
-                                    onToggleSelect={toggleImageSelection}
-                                    getImageId={getImageId}
-                                    altPrefix={`${productType} with ${artForm?.name} design`}
-                                />
-                            </Collapsible>
-                        </div>
-                    ))}
                 </div>
             )}
 

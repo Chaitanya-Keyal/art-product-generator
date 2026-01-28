@@ -19,6 +19,27 @@ import { SESSION_LIMITS, IMAGE_GENERATION } from '../config/constants.js';
 
 const router = express.Router();
 
+// Helper to group images by turn and format for response
+function formatSessionTurns(generatedImages) {
+    const imagesByTurn = {};
+    for (const img of generatedImages) {
+        const turn = img.turn ?? 0;
+        if (!imagesByTurn[turn]) {
+            imagesByTurn[turn] = [];
+        }
+        imagesByTurn[turn].push(img.filePath);
+    }
+
+    // Convert to array sorted by turn (newest first)
+    return Object.keys(imagesByTurn)
+        .map(Number)
+        .sort((a, b) => b - a)
+        .map((turn) => ({
+            turn,
+            images: formatImageUrls(imagesByTurn[turn]),
+        }));
+}
+
 // Helper to normalize generation params
 function normalizeGenerationParams(body, artForms, referenceImagePath) {
     const { artFormKey, productType, additionalInstructions, numberOfImages } = body;
@@ -128,7 +149,7 @@ router.get('/sessions', async (req, res) => {
                 sessionId: session.sessionId,
                 artForm: session.artForm,
                 productType: session.productType,
-                images: formatImageUrls(session.generatedImages.map((img) => img.filePath)),
+                turns: formatSessionTurns(session.generatedImages),
                 imageCount: session.generatedImages.length,
                 createdAt: session.createdAt,
                 updatedAt: session.updatedAt,
@@ -151,31 +172,12 @@ router.get('/session/:sessionId', async (req, res) => {
             return res.status(404).json({ error: 'Session not found or expired' });
         }
 
-        // Group images by turn
-        const imagesByTurn = {};
-        for (const img of session.generatedImages) {
-            const turn = img.turn ?? 0;
-            if (!imagesByTurn[turn]) {
-                imagesByTurn[turn] = [];
-            }
-            imagesByTurn[turn].push(img.filePath);
-        }
-
-        // Convert to array sorted by turn (newest first for display)
-        const turns = Object.keys(imagesByTurn)
-            .map(Number)
-            .sort((a, b) => b - a)
-            .map((turn) => ({
-                turn,
-                images: formatImageUrls(imagesByTurn[turn]),
-            }));
-
         res.json({
             success: true,
             sessionId: session.sessionId,
             artForm: session.artForm,
             productType: session.productType,
-            turns,
+            turns: formatSessionTurns(session.generatedImages),
             imageCount: session.generatedImages.length,
             createdAt: session.createdAt,
             updatedAt: session.updatedAt,

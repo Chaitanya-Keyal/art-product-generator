@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAllSessions } from '../api';
 import { formatDate } from '../utils/date-formatter';
-import { countWithLabel } from '../utils/text';
 import ImageModal from './ImageModal';
-import Collapsible from './Collapsible';
+import TurnList from './TurnList';
 
 function Gallery({ onClose, onSelectSession }) {
     const [sessions, setSessions] = useState([]);
@@ -30,55 +29,21 @@ function Gallery({ onClose, onSelectSession }) {
         loadSessions();
     }, [loadSessions]);
 
-    const renderImageGrid = (images, altPrefix) => (
-        <div className="gallery-grid">
-            {images.map((image, idx) => (
-                <div
-                    key={idx}
-                    className="gallery-image-card"
-                    onClick={() => setSelectedImage(image)}
-                >
-                    <img src={image} alt={`${altPrefix} ${idx + 1}`} loading="lazy" />
-                </div>
-            ))}
-        </div>
-    );
-
     const renderSessionImages = (session) => {
-        const turns = session.turns || [];
-        if (turns.length === 0) {
-            return renderImageGrid(session.images, session.productType);
-        }
-
-        const latestTurn = turns[turns.length - 1];
-        const previousTurns = turns.slice(0, -1);
-        const previousImageCount = previousTurns.reduce((sum, t) => sum + t.images.length, 0);
-
         return (
-            <>
-                {renderImageGrid(latestTurn.images, `${session.productType} - Latest`)}
-
-                {previousTurns.length > 0 && (
-                    <div style={{ marginTop: '1rem' }}>
-                        <Collapsible
-                            title={countWithLabel(previousImageCount, 'previous image')}
-                            isExpanded={expandedSessions[session.sessionId]}
-                            onToggle={() =>
-                                setExpandedSessions((prev) => ({
-                                    ...prev,
-                                    [session.sessionId]: !prev[session.sessionId],
-                                }))
-                            }
-                            variant="compact"
-                        >
-                            {renderImageGrid(
-                                previousTurns.flatMap((t) => t.images),
-                                `${session.productType} - Previous`
-                            )}
-                        </Collapsible>
-                    </div>
-                )}
-            </>
+            <TurnList
+                turns={session.turns}
+                onImageClick={setSelectedImage}
+                altPrefix={session.productType}
+                expandedTurns={expandedSessions}
+                onToggleTurn={(key) =>
+                    setExpandedSessions((prev) => ({
+                        ...prev,
+                        [key]: !prev[key],
+                    }))
+                }
+                expandKeyPrefix={session.sessionId}
+            />
         );
     };
 
