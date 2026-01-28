@@ -4,6 +4,8 @@ See the app in action.
 
 ## Video Walkthrough
 
+<https://github.com/user-attachments/assets/afbdcfb9-8f4c-470a-8259-c7d693912c88>
+
 *Note: Generation wait times removed and video sped up for brevity.*
 
 ---
