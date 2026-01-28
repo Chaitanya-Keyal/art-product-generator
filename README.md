@@ -7,7 +7,9 @@ An AI-powered web app that generates product visualizations in traditional India
 - **12 Indian Art Forms**: Blue Pottery, Cheriyal, Gond, Hand Sculpting, Kalamkari, Kavad, Madurkathi, Miniature, Nirmal, Pattachitra, Tholu Bommalata, Warli
 - **AI Image Generation**: Generates up to 4 product visualizations per request (one image per API call, all run in parallel)
 - **Reference Image Support**: Upload product reference for better results
-- **Iterative Refinement**: Modify generated images with text prompts (one image per selected image, each handled independently)
+- **Multi-Turn Conversations**: Modify generated images with text prompts, preserving context via thought signatures
+- **Cost Estimation**: Real-time cost calculation before generation with detailed breakdown
+- **Turn Tracking**: Session-based history tracking with automatic image organization by generation turn
 - **Fully Dockerized**: Single command deployment
 
 ## Quick Start
@@ -65,19 +67,42 @@ An AI-powered web app that generates product visualizations in traditional India
     - `referenceImage` (optional): Product reference image file
     - `numberOfImages` (optional): Number of images to generate (max 4, each is a separate API call)
 
-## Pricing
-
-- **Image input**: $0.0011 per image
-- **Image output**: $0.134 per image
-- **Text input**: $2 per 1M tokens
-
 - `POST /api/generate/modify/:sessionId` - Modify existing images
   - Body (JSON):
     - `modificationPrompt`: Description of changes
-    - `selectedImageIds` (optional): Array of image IDs to modify (if omitted, all images from the latest generation are modified)
-  - Note: Each selected image is modified in a separate API call (parallelized). You will always get one modified image per selected image.
+    - `selectedImageIds` (optional): Array of image IDs to modify (if omitted, all images from the latest turn are modified)
+  - Note: Each selected image is modified in a separate API call (parallelized). You will always get one modified image per selected image. Uses thought signatures to maintain conversation context.
+
+- `POST /api/generate/estimate-cost` - Estimate generation cost
+  - Body (JSON):
+    - `artFormKey` (required)
+    - `productType` (required)
+    - `additionalInstructions` (optional)
+    - `numberOfImages` (optional)
+    - `hasReferenceImage` (optional): Boolean indicating if reference image will be uploaded
+
+- `POST /api/generate/estimate-cost/modify` - Estimate modification cost
+  - Body (JSON):
+    - `sessionId` (required)
+    - `modificationPrompt` (required)
+    - `selectedImageIds` (optional)
 
 - `GET /api/generate/session/:sessionId` - Get session details
+- `GET /api/generate/sessions` - List all sessions with pagination
+
+## Pricing
+
+Gemini 3 Pro Image pricing (as of January 2026):
+
+- **Image input**: $0.0011 per image
+- **Image output**: $0.134 per image
+- **Text input**: $2 per 1M tokens (~750k characters)
+
+The app provides real-time cost estimates before generation/modification, showing:
+
+- Per-request costs (input images, output images, text tokens)
+- Total cost when generating multiple images
+- Detailed breakdown of how costs are calculated
 
 ## Development
 
