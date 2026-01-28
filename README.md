@@ -65,6 +65,12 @@ An AI-powered web app that generates product visualizations in traditional India
     - `referenceImage` (optional): Product reference image file
     - `numberOfImages` (optional): Number of images to generate (max 4, each is a separate API call)
 
+## Pricing
+
+- **Image input**: $0.0011 per image
+- **Image output**: $0.134 per image
+- **Text input**: $2 per 1M tokens
+
 - `POST /api/generate/modify/:sessionId` - Modify existing images
   - Body (JSON):
     - `modificationPrompt`: Description of changes

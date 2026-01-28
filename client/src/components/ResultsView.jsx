@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { formatTime } from '../utils/date-formatter';
+import { useState, useEffect } from 'react';
 import { countWithLabel } from '../utils/text';
 import ImageModal from './ImageModal';
 import ImageGrid from './ImageGrid';
 import Collapsible from './Collapsible';
+import { estimateModificationCost } from '../api';
+import CostEstimate from './CostEstimate';
 
 const MODIFICATION_SUGGESTIONS = [
     'Make the colors more vibrant',
@@ -18,16 +19,18 @@ function ResultsView({
     images,
     artForm,
     productType,
-    currentText,
     history,
     onModify,
     onReset,
     generating,
+    sessionId,
 }) {
     const [modificationPrompt, setModificationPrompt] = useState('');
     const [selectedImage, setSelectedImage] = useState(null);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [expandedTurns, setExpandedTurns] = useState({});
+    const [costEstimate, setCostEstimate] = useState(null);
+    const [loadingCost, setLoadingCost] = useState(false);
 
     const modelResponses = history
         .map((entry, idx) => ({ ...entry, turnIndex: idx }))
@@ -63,6 +66,33 @@ function ResultsView({
         });
     };
 
+    // Debounce cost estimation for modifications
+    useEffect(() => {
+        if (!sessionId || !modificationPrompt.trim()) {
+            setCostEstimate(null);
+            return;
+        }
+
+        const timeoutId = setTimeout(async () => {
+            setLoadingCost(true);
+            try {
+                const result = await estimateModificationCost(
+                    sessionId,
+                    modificationPrompt.trim(),
+                    Array.from(selectedIds)
+                );
+                setCostEstimate(result);
+            } catch (error) {
+                console.error('Failed to estimate cost:', error);
+                setCostEstimate(null);
+            } finally {
+                setLoadingCost(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [sessionId, modificationPrompt, selectedIds]);
+
     return (
         <div>
             <div className="card">
@@ -88,32 +118,6 @@ function ResultsView({
                         Start New
                     </button>
                 </div>
-
-                {currentText && (
-                    <div
-                        style={{
-                            marginTop: '1.5rem',
-                            padding: '1rem',
-                            background: 'rgba(139, 92, 246, 0.05)',
-                            borderRadius: '8px',
-                            borderLeft: '3px solid var(--primary)',
-                        }}
-                    >
-                        <p
-                            style={{
-                                fontSize: '0.875rem',
-                                color: 'var(--text-secondary)',
-                                marginBottom: '0.5rem',
-                                fontWeight: '600',
-                            }}
-                        >
-                            AI Response:
-                        </p>
-                        <p style={{ color: 'var(--text-primary)', lineHeight: '1.6', margin: 0 }}>
-                            {currentText}
-                        </p>
-                    </div>
-                )}
 
                 {latestResponse?.errors && latestResponse.errors.length > 0 && (
                     <div
@@ -221,37 +225,15 @@ function ResultsView({
                             }}
                         >
                             <Collapsible
-                                title={
-                                    <>
-                                        Turn {idx + 1} -{' '}
-                                        {countWithLabel(response.images.length, 'image')}
-                                        <span
-                                            style={{
-                                                color: 'var(--text-secondary)',
-                                                marginLeft: '0.5rem',
-                                                fontSize: '0.875rem',
-                                            }}
-                                        >
-                                            {formatTime(response.timestamp)}
-                                        </span>
-                                    </>
-                                }
-                                isExpanded={expandedTurns[idx]}
+                                title={`Turn ${(response.turn ?? idx) + 1} - ${countWithLabel(response.images.length, 'image')}`}
+                                isExpanded={expandedTurns[response.turn ?? idx]}
                                 onToggle={() =>
-                                    setExpandedTurns((prev) => ({ ...prev, [idx]: !prev[idx] }))
+                                    setExpandedTurns((prev) => ({
+                                        ...prev,
+                                        [response.turn ?? idx]: !prev[response.turn ?? idx],
+                                    }))
                                 }
                             >
-                                {response.text && (
-                                    <p
-                                        style={{
-                                            fontSize: '0.875rem',
-                                            color: 'var(--text-secondary)',
-                                            marginBottom: '1rem',
-                                        }}
-                                    >
-                                        {response.text}
-                                    </p>
-                                )}
                                 <ImageGrid
                                     images={response.images}
                                     onImageClick={setSelectedImage}
@@ -293,6 +275,16 @@ function ResultsView({
                             </button>
                         </div>
                     </form>
+
+                    <CostEstimate
+                        costEstimate={costEstimate}
+                        loading={loadingCost}
+                        header={
+                            costEstimate
+                                ? `Estimated Cost (${costEstimate.imagesBeingModified} ${costEstimate.imagesBeingModified === 1 ? 'image' : 'images'}):`
+                                : undefined
+                        }
+                    />
 
                     <div style={{ marginTop: '1rem' }}>
                         <p

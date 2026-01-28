@@ -4,11 +4,7 @@ import ResultsView from './components/ResultsView';
 import Gallery from './components/Gallery';
 import Toast from './components/Toast';
 import { fetchArtForms, generateImages, modifyImages, getSession } from './api';
-import {
-    buildUserHistoryEntry,
-    buildAssistantHistoryEntry,
-    buildGenerationPrompt,
-} from './utils/history-builder';
+import { buildAssistantHistoryEntry } from './utils/history-builder';
 
 function App() {
     const [artForms, setArtForms] = useState([]);
@@ -23,7 +19,6 @@ function App() {
     const [currentArtForm, setCurrentArtForm] = useState(null);
     const [currentProduct, setCurrentProduct] = useState('');
     const [sessionHistory, setSessionHistory] = useState([]);
-    const [currentText, setCurrentText] = useState('');
 
     useEffect(() => {
         async function loadArtForms() {
@@ -54,18 +49,9 @@ function App() {
             setGeneratedImages(result.images);
             setCurrentArtForm(artForms.find((af) => af.key === formData.artFormKey));
             setCurrentProduct(formData.productType);
-            setCurrentText(result.text || '');
-
-            const timestamp = new Date();
-            const userPrompt = buildGenerationPrompt(
-                formData.artFormKey,
-                formData.productType,
-                formData.additionalInstructions
-            );
 
             setSessionHistory([
-                buildUserHistoryEntry(userPrompt, timestamp),
-                buildAssistantHistoryEntry(result.text, result.images, timestamp, result.errors),
+                buildAssistantHistoryEntry(result.images, result.errors, result.turn),
             ]);
 
             if (result.errors && result.errors.length > 0) {
@@ -94,13 +80,10 @@ function App() {
         try {
             const result = await modifyImages(sessionId, modificationPrompt, selectedImageIds);
             setGeneratedImages((prev) => [...prev, ...result.images]);
-            setCurrentText(result.text || '');
 
-            const timestamp = new Date();
             setSessionHistory((prev) => [
                 ...prev,
-                buildUserHistoryEntry(modificationPrompt, timestamp, selectedImageIds),
-                buildAssistantHistoryEntry(result.text, result.images, timestamp, result.errors),
+                buildAssistantHistoryEntry(result.images, result.errors, result.turn),
             ]);
 
             if (result.errors && result.errors.length > 0) {
@@ -126,7 +109,6 @@ function App() {
         setCurrentArtForm(null);
         setCurrentProduct('');
         setSessionHistory([]);
-        setCurrentText('');
         setError(null);
         showToast('Starting new generation', 'info');
     };
@@ -138,26 +120,29 @@ function App() {
         }, 4000);
     };
 
-    const handleSelectSession = async (sessionId) => {
+    const handleSelectSession = async (selectedSessionId) => {
         setShowGallery(false);
         setError(null);
 
         try {
-            const session = await getSession(sessionId);
+            const session = await getSession(selectedSessionId);
             const artForm = artForms.find((af) => af.key === session.artForm);
 
+            // Flatten all images from turns
+            const allImages = session.turns.flatMap((t) => t.images);
+
             setSessionId(session.sessionId);
-            setGeneratedImages(session.images);
+            setGeneratedImages(allImages);
             setCurrentArtForm(artForm);
             setCurrentProduct(session.productType);
-            setSessionHistory(session.history || []);
 
-            // Set current text to the latest model response
-            const lastModelEntry = session.history
-                ?.slice()
+            // Build history entries from turns (server returns newest first, reverse for chronological)
+            const history = session.turns
+                .slice()
                 .reverse()
-                .find((entry) => entry.role === 'model');
-            setCurrentText(lastModelEntry?.text || '');
+                .map((t) => buildAssistantHistoryEntry(t.images, null, t.turn));
+
+            setSessionHistory(history);
 
             showToast('Session loaded successfully', 'success');
         } catch (err) {
@@ -205,11 +190,11 @@ function App() {
                     images={generatedImages}
                     artForm={currentArtForm}
                     productType={currentProduct}
-                    currentText={currentText}
                     history={sessionHistory}
                     onModify={handleModify}
                     onReset={handleReset}
                     generating={generating}
+                    sessionId={sessionId}
                 />
             )}
 

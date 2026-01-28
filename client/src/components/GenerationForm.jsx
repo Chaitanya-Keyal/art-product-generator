@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
+import { estimateGenerationCost } from '../api';
+import CostEstimate from './CostEstimate';
 
 function GenerationForm({ artForms, onGenerate, generating }) {
     const [artFormKey, setArtFormKey] = useState('');
@@ -9,6 +11,8 @@ function GenerationForm({ artForms, onGenerate, generating }) {
     const [previewUrl, setPreviewUrl] = useState(null);
     const [validationError, setValidationError] = useState('');
     const [numberOfImages, setNumberOfImages] = useState(1);
+    const [costEstimate, setCostEstimate] = useState(null);
+    const [loadingCost, setLoadingCost] = useState(false);
 
     const fileInputRef = useRef(null);
     const dropdownRef = useRef(null);
@@ -32,6 +36,35 @@ function GenerationForm({ artForms, onGenerate, generating }) {
             }
         };
     }, [previewUrl]);
+
+    // Debounce cost estimation
+    useEffect(() => {
+        if (!artFormKey || !productType.trim()) {
+            setCostEstimate(null);
+            return;
+        }
+
+        const timeoutId = setTimeout(async () => {
+            setLoadingCost(true);
+            try {
+                const result = await estimateGenerationCost({
+                    artFormKey,
+                    productType: productType.trim(),
+                    additionalInstructions: additionalInstructions.trim(),
+                    numberOfImages,
+                    hasReferenceImage: !!referenceImage,
+                });
+                setCostEstimate(result);
+            } catch (error) {
+                console.error('Failed to estimate cost:', error);
+                setCostEstimate(null);
+            } finally {
+                setLoadingCost(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [artFormKey, productType, additionalInstructions, numberOfImages, referenceImage]);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -331,6 +364,12 @@ function GenerationForm({ artForms, onGenerate, generating }) {
                     </p>
                 )}
             </div>
+
+            <CostEstimate
+                costEstimate={costEstimate}
+                loading={loadingCost}
+                header="Estimated Cost:"
+            />
 
             <button
                 type="submit"

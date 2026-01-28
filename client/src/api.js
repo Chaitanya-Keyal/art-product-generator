@@ -73,3 +73,51 @@ export async function getAllSessions(limit = 50, skip = 0) {
         return handleApiResponse(response, 'Failed to fetch sessions');
     });
 }
+
+export async function estimateGenerationCost({
+    artFormKey,
+    productType,
+    additionalInstructions,
+    numberOfImages,
+    hasReferenceImage,
+}) {
+    return apiCall(async () => {
+        const response = await fetch(`${API_BASE}/generate/estimate-cost`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                artFormKey,
+                productType,
+                additionalInstructions,
+                numberOfImages,
+                hasReferenceImage,
+            }),
+        });
+
+        return handleApiResponse(response, 'Failed to estimate cost');
+    });
+}
+
+export async function estimateModificationCost(
+    sessionId,
+    modificationPrompt,
+    selectedImageIds = []
+) {
+    return apiCall(async () => {
+        const response = await fetch(`${API_BASE}/generate/estimate-cost/modify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                sessionId,
+                modificationPrompt,
+                selectedImageIds: selectedImageIds.length > 0 ? selectedImageIds : undefined,
+            }),
+        });
+
+        return handleApiResponse(response, 'Failed to estimate cost');
+    });
+}

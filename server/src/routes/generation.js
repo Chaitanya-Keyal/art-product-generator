@@ -3,7 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import upload from '../middleware/upload.js';
 import Session from '../models/Session.js';
 import artForms from '../config/artForms.js';
-import { generateProductImages, modifyImages } from '../services/geminiService.js';
+import {
+    generateProductImages,
+    modifyImages,
+    estimateGenerationCost,
+    estimateModificationCost,
+} from '../services/geminiService.js';
 import {
     sendSuccessResponse,
     sendErrorResponse,
@@ -14,46 +19,49 @@ import { SESSION_LIMITS, IMAGE_GENERATION } from '../config/constants.js';
 
 const router = express.Router();
 
-router.post('/', upload.single('referenceImage'), async (req, res) => {
-    try {
-        const { artFormKey, productType, additionalInstructions, numberOfImages } = req.body;
+// Helper to normalize generation params
+function normalizeGenerationParams(body, artForms, referenceImagePath) {
+    const { artFormKey, productType, additionalInstructions, numberOfImages } = body;
 
-        validateEnum(artFormKey, artForms, 'art form');
-        validateRequired(productType, 'Product type');
+    validateEnum(artFormKey, artForms, 'art form');
+    validateRequired(productType, 'Product type');
 
-        const imageCount = Math.min(
+    return {
+        artForm: artForms[artFormKey],
+        productType: productType.trim(),
+        referenceImagePath,
+        additionalInstructions: additionalInstructions?.trim(),
+        numberOfImages: Math.min(
             Math.max(parseInt(numberOfImages) || IMAGE_GENERATION.DEFAULT_COUNT, 1),
             IMAGE_GENERATION.MAX_COUNT
-        );
-        const artForm = artForms[artFormKey];
-        const referenceImagePath = req.file ? req.file.path : null;
+        ),
+    };
+}
 
-        const result = await generateProductImages({
-            artForm,
-            productType: productType.trim(),
-            referenceImagePath,
-            additionalInstructions: additionalInstructions?.trim(),
-            numberOfImages: imageCount,
-        });
+router.post('/', upload.single('referenceImage'), async (req, res) => {
+    try {
+        const referenceImagePath = req.file ? `uploads/${req.file.filename}` : null;
+        const params = normalizeGenerationParams(req.body, artForms, referenceImagePath);
+        const result = await generateProductImages(params);
 
         const sessionId = uuidv4();
+        const imagesWithTurn = result.images.map((img) => ({ ...img, turn: 0 }));
+
         const session = new Session({
             sessionId,
-            artForm: artFormKey,
-            productType,
-            history: [
-                { role: 'user', parts: result.requestParts },
-                { role: 'model', parts: result.responseParts },
-            ],
-            generatedImages: result.images,
+            artForm: req.body.artFormKey,
+            productType: params.productType,
+            baseUserInput: result.baseUserInput,
+            generatedImages: imagesWithTurn,
+            currentTurn: 0,
         });
 
         await session.save();
 
         sendSuccessResponse(res, {
             sessionId,
-            images: result.images,
-            text: result.text,
+            images: result.images.map((img) => img.filePath),
+            turn: 0,
             ...(result.errors && { errors: result.errors }),
         });
     } catch (error) {
@@ -74,29 +82,23 @@ router.post('/modify/:sessionId', async (req, res) => {
         }
 
         const result = await modifyImages(
-            session.history,
+            session.baseUserInput,
+            session.generatedImages,
             modificationPrompt.trim(),
             selectedImageIds || []
         );
 
-        session.history.push({
-            role: 'user',
-            parts: [{ text: modificationPrompt.trim() }],
-        });
+        const newTurn = session.currentTurn + 1;
+        const imagesWithTurn = result.images.map((img) => ({ ...img, turn: newTurn }));
 
-        session.history.push({
-            role: 'model',
-            parts: result.responseParts,
-        });
-
-        session.generatedImages.push(...result.images);
-
+        session.generatedImages.push(...imagesWithTurn);
+        session.currentTurn = newTurn;
         await session.save();
 
         sendSuccessResponse(res, {
             sessionId,
-            images: result.images,
-            text: result.text,
+            images: result.images.map((img) => img.filePath),
+            turn: newTurn,
             ...(result.errors && { errors: result.errors }),
         });
     } catch (error) {
@@ -116,33 +118,9 @@ router.get('/sessions', async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(limit)
             .skip(skip)
-            .select('sessionId artForm productType generatedImages history createdAt updatedAt');
+            .select('sessionId artForm productType generatedImages createdAt updatedAt');
 
         const total = await Session.countDocuments();
-
-        // Extract images grouped by turn from history
-        const formatSessionTurns = (session) => {
-            const turns = [];
-            session.history.forEach((entry, idx) => {
-                if (entry.role === 'model') {
-                    const images = entry.parts
-                        .filter((p) => p.inlineData?.filePath)
-                        .map((p) => p.inlineData.filePath);
-                    const text = entry.parts
-                        .filter((p) => p.text)
-                        .map((p) => p.text)
-                        .join('\n');
-                    if (images.length > 0) {
-                        turns.push({
-                            turnIndex: idx,
-                            images: formatImageUrls(images),
-                            text: text || null,
-                        });
-                    }
-                }
-            });
-            return turns;
-        };
 
         res.json({
             success: true,
@@ -150,8 +128,8 @@ router.get('/sessions', async (req, res) => {
                 sessionId: session.sessionId,
                 artForm: session.artForm,
                 productType: session.productType,
-                images: formatImageUrls(session.generatedImages),
-                turns: formatSessionTurns(session),
+                images: formatImageUrls(session.generatedImages.map((img) => img.filePath)),
+                imageCount: session.generatedImages.length,
                 createdAt: session.createdAt,
                 updatedAt: session.updatedAt,
             })),
@@ -173,50 +151,77 @@ router.get('/session/:sessionId', async (req, res) => {
             return res.status(404).json({ error: 'Session not found or expired' });
         }
 
-        // Convert history to client format with formatted image URLs
-        const history = session.history.map((entry) => {
-            if (entry.role === 'model') {
-                const images = entry.parts
-                    .filter((p) => p.inlineData?.filePath)
-                    .map((p) => p.inlineData.filePath);
-                const text = entry.parts
-                    .filter((p) => p.text)
-                    .map((p) => p.text)
-                    .join('\n');
-
-                return {
-                    role: 'model',
-                    text: text || null,
-                    images: formatImageUrls(images),
-                    timestamp: entry.createdAt || session.createdAt,
-                };
-            } else {
-                // User entry
-                const text = entry.parts
-                    .filter((p) => p.text)
-                    .map((p) => p.text)
-                    .join('\n');
-
-                return {
-                    role: 'user',
-                    prompt: text,
-                    timestamp: entry.createdAt || session.createdAt,
-                };
+        // Group images by turn
+        const imagesByTurn = {};
+        for (const img of session.generatedImages) {
+            const turn = img.turn ?? 0;
+            if (!imagesByTurn[turn]) {
+                imagesByTurn[turn] = [];
             }
-        });
+            imagesByTurn[turn].push(img.filePath);
+        }
+
+        // Convert to array sorted by turn (newest first for display)
+        const turns = Object.keys(imagesByTurn)
+            .map(Number)
+            .sort((a, b) => b - a)
+            .map((turn) => ({
+                turn,
+                images: formatImageUrls(imagesByTurn[turn]),
+            }));
 
         res.json({
             success: true,
             sessionId: session.sessionId,
             artForm: session.artForm,
             productType: session.productType,
-            images: formatImageUrls(session.generatedImages),
-            history,
+            turns,
+            imageCount: session.generatedImages.length,
             createdAt: session.createdAt,
             updatedAt: session.updatedAt,
         });
     } catch (error) {
         sendErrorResponse(res, error, 'Session fetch error');
+    }
+});
+
+// Cost estimation - uses same request building logic as actual API calls
+router.post('/estimate-cost', (req, res) => {
+    try {
+        const params = normalizeGenerationParams(
+            req.body,
+            artForms,
+            req.body.hasReferenceImage ? 'dummy' : null
+        );
+        const costEstimate = estimateGenerationCost(params);
+
+        res.json({ success: true, ...costEstimate });
+    } catch (error) {
+        sendErrorResponse(res, error, 'Cost estimation error');
+    }
+});
+
+router.post('/estimate-cost/modify', async (req, res) => {
+    try {
+        const { sessionId, modificationPrompt, selectedImageIds } = req.body;
+
+        validateRequired(modificationPrompt, 'Modification prompt');
+
+        const session = await Session.findOne({ sessionId });
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found or expired' });
+        }
+
+        const costEstimate = estimateModificationCost({
+            baseUserInput: session.baseUserInput,
+            generatedImages: session.generatedImages,
+            modificationPrompt: modificationPrompt.trim(),
+            selectedImageIds: selectedImageIds || [],
+        });
+
+        res.json({ success: true, ...costEstimate });
+    } catch (error) {
+        sendErrorResponse(res, error, 'Cost estimation error');
     }
 });
 

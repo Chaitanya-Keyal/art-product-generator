@@ -1,26 +1,23 @@
 import mongoose from 'mongoose';
 
-const messagePartSchema = new mongoose.Schema(
+// Stores the initial user input (prompt text + any reference image paths)
+const userInputPartSchema = new mongoose.Schema(
     {
         text: { type: String },
         inlineData: {
             mimeType: { type: String },
-            filePath: { type: String }, // Local path, will be converted to base64 when sending
+            filePath: { type: String },
         },
-        thought: { type: Boolean },
-        thoughtSignature: { type: String },
     },
     { _id: false }
 );
 
-const messageSchema = new mongoose.Schema(
+// Stores each generated image with its thought signature and turn info
+const generatedImageSchema = new mongoose.Schema(
     {
-        role: {
-            type: String,
-            enum: ['user', 'model'],
-            required: true,
-        },
-        parts: [messagePartSchema],
+        filePath: { type: String, required: true },
+        thoughtSignature: { type: String },
+        turn: { type: Number, required: true }, // Which generation/modification turn
     },
     { _id: false }
 );
@@ -40,12 +37,12 @@ const sessionSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    history: [messageSchema],
-    generatedImages: [
-        {
-            type: String, // File paths to generated images
-        },
-    ],
+    // The initial user input block (prompt + reference images)
+    baseUserInput: [userInputPartSchema],
+    // All generated images with their thought signatures
+    generatedImages: [generatedImageSchema],
+    // Current turn counter (increments with each generation/modification)
+    currentTurn: { type: Number, default: 0 },
     createdAt: {
         type: Date,
         default: Date.now,

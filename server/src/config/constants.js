@@ -25,3 +25,10 @@ export const UPLOAD_LIMITS = {
     MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
     ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
 };
+
+export const GEMINI_PRICING = {
+    IMAGE_INPUT: 0.0011, // per image
+    IMAGE_OUTPUT: 0.134, // per image
+    TEXT_INPUT: 2 / 1000000, // $2 per 1M tokens
+    CHARS_PER_TOKEN: 4, // approximate 1 token = 4 chars
+};

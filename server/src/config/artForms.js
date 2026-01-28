@@ -1,9 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ASSETS_BASE = path.join(__dirname, '../../../assets/art_forms');
+const ASSETS_BASE = path.join(process.cwd(), 'assets/art_forms');
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
 const artForms = {
@@ -100,8 +98,8 @@ for (const key of Object.keys(artForms)) {
 
     if (fs.existsSync(formDir)) {
         try {
-            artForms[key].referenceImages = fs
-                .readdirSync(formDir)
+            const files = fs.readdirSync(formDir);
+            artForms[key].referenceImages = files
                 .filter((f) => IMAGE_EXTENSIONS.includes(path.extname(f).toLowerCase()))
                 .map((img) => `assets/art_forms/${key}/${img}`);
         } catch (err) {
