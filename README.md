@@ -142,3 +142,28 @@ newartform: {
 Reference images are automatically discovered from the assets directory at startup.
 
 Note on tuning: You can improve generation results by editing the `stylePrompt` for any art form in [server/src/config/artForms.js](server/src/config/artForms.js). Reference images may also be updated to better represent the style.
+
+## Production Deployment
+
+> [!WARNING]
+> This project is configured for development only. Before deploying to production, review and implement the following:
+
+### Critical Security Requirements
+
+- **Authentication**: No authentication implemented. Add user auth to protect API endpoints and associate sessions with users
+- **Rate Limiting**: No rate limiting exists. Add throttling per IP/user to prevent abuse and control costs
+- **Prompt Injection & Input Validation**: Sanitize all user inputs (product descriptions, modifications, instructions, file uploads) before processing. Consider input length limits, file type/size validation, and filtering malicious patterns
+
+### Database & Infrastructure
+
+- **MongoDB**: Enable authentication, use strong credentials, configure network restrictions, enable encryption, set up backups
+- **HTTPS/SSL**: Configure SSL certificates and reverse proxy (nginx)
+- **Cloud Storage**: Move uploaded/generated images to cloud storage (AWS S3, GCP Cloud Storage) instead of local filesystem
+- **User History Management**: Implement proper user session history and generation tracking tied to authenticated user accounts
+
+### Monitoring & Cost Control
+
+- **Logging & Monitoring**: Add structured logging, health checks, error tracking (Sentry)
+- **API Usage Tracking**: Monitor Gemini API costs and set budget alerts
+- **User Quotas**: Implement per-user generation limits to control API costs
+- **Resource Limits**: Configure Docker memory/CPU limits for production load
